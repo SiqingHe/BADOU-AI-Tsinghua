@@ -70,16 +70,20 @@ def edge_pre(img,edge_kind,debug=0):
         cv2.waitKey(0)
     return convolve_img
 
-def nms(img_grey):
+def nms(img_grey,debug=0):
     """non maximum suppression
     """
-    grad_x=edge_pre(img_grey,edge_kind='prewitt_x')
-    grad_y=edge_pre(img_grey,edge_kind='prewitt_y')
+    grad_x=edge_pre(img_grey,edge_kind='prewitt_x').astype(np.float32)
+    grad_y=edge_pre(img_grey,edge_kind='prewitt_y').astype(np.float32)
     grad=np.sqrt(grad_x**2+grad_y**2)
-    grad_x[grad_x==0]==1e-7
+    grad_x[grad_x==0]=1e-7
     tan_mat=grad_y/grad_x
     h_ta,w_ta=tan_mat.shape[0:2]
     nms_result=np.zeros(img_grey.shape)
+    if debug:
+        combine=np.hstack((img_grey,np.uint8(grad)))
+        cv2.imshow('grad',combine)
+        cv2.waitKey(0)
     for i in range(1,h_ta-1):
         for j in range(1,w_ta-1):
             flag=True
@@ -100,8 +104,39 @@ def nms(img_grey):
                 flag=False
             if flag:
                 nms_result[i,j]=grad[i,j]
+    # nms_result=np.uint8(nms_result)
+    if debug:
+        combine=np.hstack((img_grey,np.uint8(nms_result)))
+        cv2.imshow('nms',combine)
+        cv2.waitKey(0)
+    low_thresh=int(np.mean(img_grey)*0.2)
+    high_thresh=low_thresh*2
+    call_=call_back(low_thresh,high_thresh,nms_result)
+    if debug:
+        combine=np.hstack((np.uint8(grad),np.uint8(nms_result),np.uint8(call_)))
+        cv2.imshow('nms',combine)
+        cv2.waitKey(0)
     return nms_result
+
+def call_back(low_thresh,high_thresh,nms_result):
+    h_i,w_i=nms_result.shape[0:2]
+    strong=[]
+    call_result=np.zeros(nms_result.shape)
+    for i in range(1,h_i-1):
+        for j in range(1,w_i-1):
+            if nms_result[i,j]>=high_thresh:
+                strong.append((i,j))
+                call_result[i,j]=255
+    while len(strong)>0:
+        id_i,id_j=strong.pop()
+        for ii in range(-1,2):
+            for jj in range(-1,2):
+                if nms_result[id_i+ii,id_j+jj]>=low_thresh and \
+                nms_result[id_i+ii,id_j+jj]<=high_thresh:
+                    call_result[id_i+ii,id_j+jj]=255
+    return call_result
 if __name__=="__main__":
     # img_path=r"D:\badou_hmwk\158+hesiqing+shanghai\4th_week\LenaRGB.bmp"
     # grey_img=cv2.imread(img_path,0)
-    sobel(img=grey_img)
+    # sobel(img=grey_img)
+    nms(grey_img,debug=1)
